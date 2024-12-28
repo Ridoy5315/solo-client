@@ -1,18 +1,32 @@
-import { useContext, useState } from "react";
+import { useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { AuthContext } from "../providers/AuthProvider";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-
-
+import useAuth from "../hooks/useAuth";
+import useAxiosSecure from "../hooks/useAxios";
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 const AddJob = () => {
+  const queryClient = useQueryClient()
   const navigate = useNavigate();
   const [startDate, setStartDate] = useState(new Date());
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
+  const axiosSecure = useAxiosSecure();
+  const { isPending, mutateAsync } = useMutation({
+    mutationFn: async (jobData) => {
+      await axiosSecure.post(`/add-job`, jobData);
+    },
+    onSuccess: () => {
+      console.log("data  saved");
+      queryClient.invalidateQueries({ queryKey: ['jobs'] })
+    },
+    onError: (err) => {
+      toast.error("Something has problem");
+    },
+  });
 
-  const handleSubmit = async(e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const form = e.target;
@@ -35,15 +49,16 @@ const AddJob = () => {
       minPrice,
       maxPrice,
       description,
-      bid_count: 0
+      bid_count: 0,
     };
     // console.log(formData);
-    try{
-      await axios.post(`${import.meta.env.VITE_API_URL}/add-job`, formData);
+    try {
+      //make a post request using useMutation hook
+      await mutateAsync(formData);
       form.reset();
-      toast.success('Data Added successfully');
-      navigate('/my-posted-jobs')
-    }catch (err){
+      toast.success("Data Added successfully");
+      navigate("/my-posted-jobs");
+    } catch (err) {
       console.log(err);
       toast.error(err.message);
     }
@@ -143,7 +158,7 @@ const AddJob = () => {
           </div>
           <div className="flex justify-end mt-6">
             <button className="disabled:cursor-not-allowed px-8 py-2.5 leading-5 text-white transition-colors duration-300 transhtmlForm bg-gray-700 rounded-md hover:bg-gray-600 focus:outline-none focus:bg-gray-600">
-              Save
+              {isPending ? "Saving..." : "Save"}
             </button>
           </div>
         </form>

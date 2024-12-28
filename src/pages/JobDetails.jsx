@@ -1,11 +1,15 @@
 import axios from 'axios'
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
-import { useParams } from 'react-router-dom'
-import {format} from 'date-fns';
+import { useNavigate, useParams } from 'react-router-dom'
+import {compareAsc, format} from 'date-fns';
+import { AuthContext } from '../providers/AuthProvider'
+import toast from 'react-hot-toast'
 const JobDetails = () => {
+  const navigate = useNavigate();
+  const {user} =useContext(AuthContext);
   const {id} = useParams()
   const [startDate, setStartDate] = useState(new Date())
   const [job, setJob] = useState([]);
@@ -15,7 +19,7 @@ const JobDetails = () => {
   const fetchJobData = async () => {
     const { data } = await axios.get(`${import.meta.env.VITE_API_URL}/job/${id}`);
     setJob(data);
-    setStartDate(new Date(data.deadline))
+    // setStartDate(new Date(data.deadline))
   };
   const {_id,
     title,
@@ -25,7 +29,43 @@ const JobDetails = () => {
     maxPrice,
     buyer,
     description
-  } = job;
+  } = job || {};
+
+  const handleSubmit = async e => {
+    e.preventDefault()
+    console.log('got it')
+    const form = e.target;
+    const price = form.price.value;
+    const email = user?.email;
+    const comment = form.comment.value;
+    const jobId = _id;
+    // const deadline = startDate;
+    //deadline validation
+    if(user?.email === buyer?.email){
+      toast.error('action not permitted');
+    }
+    if(compareAsc(new Date(), new Date(deadline)) === 1){
+      return toast.error('Deadline is over');
+    }
+    //max price validation
+    if(price > maxPrice){
+      return toast.error('you cant offer more the max price');
+    }
+
+    if(compareAsc(new Date(startDate), new Date(deadline)) === 1){
+      return toast.error('offer a date within the deadline')
+    }
+    const bidData = {jobId, price, email, comment, deadline: startDate, title, category, status: 'pending', buyer: buyer?.email}
+    try{
+      await axios.post(`${import.meta.env.VITE_API_URL}/add-bid`, bidData);
+      form.reset();
+      toast.success('Data for Bid Added successfully');
+      navigate('/my-bids')
+    }catch (err){
+      console.log(err);
+      toast.error(err?.response?.data);
+    }
+  }
   return (
     <div className='flex flex-col md:flex-row justify-around gap-5  items-center min-h-[calc(100vh-306px)] md:max-w-screen-xl mx-auto '>
       {/* Job Details */}
@@ -63,6 +103,7 @@ const JobDetails = () => {
             </div>
             <div className='rounded-full object-cover overflow-hidden w-14 h-14'>
               <img
+              referrerPolicy='no-referrer'
                 src= {buyer?.photo}
                 alt=''
               />
@@ -79,7 +120,7 @@ const JobDetails = () => {
           Place A Bid
         </h2>
 
-        <form>
+        <form onSubmit={handleSubmit}>
           <div className='grid grid-cols-1 gap-6 mt-4 sm:grid-cols-2'>
             <div>
               <label className='text-gray-700 ' htmlFor='price'>
@@ -102,6 +143,7 @@ const JobDetails = () => {
                 id='emailAddress'
                 type='email'
                 name='email'
+                defaultValue={user?.email}
                 disabled
                 className='block w-full px-4 py-2 mt-2 text-gray-700 bg-white border border-gray-200 rounded-md   focus:border-blue-400 focus:ring-blue-300 focus:ring-opacity-40  focus:outline-none focus:ring'
               />

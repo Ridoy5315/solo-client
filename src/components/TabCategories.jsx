@@ -2,18 +2,25 @@
 import { Tab, Tabs, TabList, TabPanel } from "react-tabs";
 import "react-tabs/style/react-tabs.css";
 import JobCard from "./JobCard";
-import { useEffect, useState } from "react";
 import axios from "axios";
+import { useQuery } from "@tanstack/react-query";
+import LoadingSpinner from "./LoadingSpinner";
+import toast from "react-hot-toast";
 
 const TabCategories = () => {
-  const [jobs, setJobs] = useState([]);
-  useEffect(() => {
-    fetchAllJobs();
-  }, []);
-  const fetchAllJobs = async () => {
+
+  const {data: jobs, isLoading, isError} = useQuery({ queryKey: ['jobs'], queryFn: async() => {
     const { data } = await axios.get(`${import.meta.env.VITE_API_URL}/jobs`);
-    setJobs(data);
-  };
+    return data
+  } })
+  if(isLoading){
+    return <LoadingSpinner></LoadingSpinner>
+  }
+
+  if(isError){
+    return toast.error('Something have problem')
+  }
+
   return (
     <Tabs>
       <div className=" container px-6 py-10 mx-auto">
